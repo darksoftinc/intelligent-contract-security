@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Solidity Zafiyet Tarama - Akıllı Kontrat Güvenlik Analizi</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#3B82F6',
+            secondary: '#64748B',
+            success: '#10B981',
+            warning: '#F59E0B',
+            danger: '#EF4444',
+            dark: '#1E293B'
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
+  <!-- Navigation -->
+  <nav class="bg-white shadow-lg border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between h-16">
+        <div class="flex items-center">
+          <div class="flex-shrink-0 flex items-center">
+            <i class="fas fa-shield-alt text-2xl text-primary mr-3"></i>
+            <span class="text-xl font-bold text-dark">SolidityGuard</span>
+          </div>
+        </div>
+        <div class="flex items-center space-x-4">
+          <span class="text-sm text-secondary">v1.0.0</span>
+          <div class="w-3 h-3 bg-success rounded-full animate-pulse"></div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+    <!-- Header Section -->
+    <div class="text-center mb-12">
+      <h1 class="text-4xl font-bold text-dark mb-4">Akıllı Kontrat Güvenlik Analizi</h1>
+      <p class="text-lg text-secondary max-w-3xl mx-auto">
+        Solidity kontratlarınızı analiz edin, güvenlik açıklarını tespit edin ve kodunuzu güvenli hale getirin.
+        Gelişmiş algoritmalar ile reentrancy, integer overflow, access control ve daha fazla zafiyeti otomatik olarak bulun.
+      </p>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-primary">
+        <div class="flex items-center">
+          <div class="p-2 bg-blue-100 rounded-lg">
+            <i class="fas fa-file-code text-primary text-xl"></i>
+          </div>
+          <div class="ml-4">
+            <p class="text-sm font-medium text-secondary">Analiz Edilen</p>
+            <p class="text-2xl font-bold text-dark" id="filesAnalyzed">0</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-danger">
+        <div class="flex items-center">
+          <div class="p-2 bg-red-100 rounded-lg">
+            <i class="fas fa-exclamation-triangle text-danger text-xl"></i>
+          </div>
+          <div class="ml-4">
+            <p class="text-sm font-medium text-secondary">Kritik Zafiyet</p>
+            <p class="text-2xl font-bold text-dark" id="criticalVulns">0</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-warning">
+        <div class="flex items-center">
+          <div class="p-2 bg-amber-100 rounded-lg">
+            <i class="fas fa-exclamation-circle text-warning text-xl"></i>
+          </div>
+          <div class="ml-4">
+            <p class="text-sm font-medium text-secondary">Orta Seviye</p>
+            <p class="text-2xl font-bold text-dark" id="mediumVulns">0</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-success">
+        <div class="flex items-center">
+          <div class="p-2 bg-green-100 rounded-lg">
+            <i class="fas fa-check-circle text-success text-xl"></i>
+          </div>
+          <div class="ml-4">
+            <p class="text-sm font-medium text-secondary">Güvenli</p>
+            <p class="text-2xl font-bold text-dark" id="safeFiles">0</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- Input Section -->
+      <div class="space-y-6">
+        <!-- File Upload Card -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+          <div class="flex items-center mb-4">
+            <i class="fas fa-upload text-primary mr-2"></i>
+            <h3 class="text-lg font-semibold text-dark">Dosya Yükle</h3>
+          </div>
+          
+          <div class="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-primary transition-colors">
+            <input id="file" type="file" accept=".sol" class="hidden" />
+            <label for="file" class="cursor-pointer">
+              <i class="fas fa-cloud-upload-alt text-4xl text-secondary mb-4"></i>
+              <p class="text-sm text-secondary mb-2">Solidity dosyasını sürükleyin veya tıklayın</p>
+              <p class="text-xs text-slate-400">.sol uzantılı dosyalar desteklenir</p>
+            </label>
+          </div>
+          
+          <div class="mt-4 flex items-center justify-center">
+            <span class="text-slate-500 text-sm mx-2">veya</span>
+            <button id="btnSample" class="inline-flex items-center px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors">
+              <i class="fas fa-code mr-2"></i>
+              Örnek Kod Yükle
+            </button>
+          </div>
+        </div>
+
+        <!-- Code Input Card -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center">
+              <i class="fas fa-code text-primary mr-2"></i>
+              <h3 class="text-lg font-semibold text-dark">Kod Analizi</h3>
+            </div>
+            <div class="flex space-x-2">
+              <button id="btnClear" class="text-xs px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition-colors">
+                <i class="fas fa-eraser mr-1"></i>Temizle
+              </button>
+              <button id="btnFormat" class="text-xs px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition-colors">
+                <i class="fas fa-magic mr-1"></i>Format
+              </button>
+            </div>
+          </div>
+          
+          <textarea id="code" class="w-full h-80 p-4 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent font-mono text-sm resize-none" 
+            placeholder="// SPDX-License-Identifier: MIT&#10;pragma solidity ^0.8.20;&#10;&#10;contract Example {&#10;  // Kodunuzu buraya yapıştırın&#10;  // veya dosya yükleyin&#10;}"></textarea>
+          
+          <div class="mt-4 flex items-center justify-between">
+            <div class="text-xs text-slate-500">
+              <span id="charCount">0</span> karakter
+            </div>
+            <button id="analyze" class="inline-flex items-center px-6 py-3 bg-primary hover:bg-blue-700 text-white font-medium rounded-lg transition-colors transform hover:scale-105">
+              <i class="fas fa-search mr-2"></i>
+              Analiz Et
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Output Section -->
+      <div class="space-y-6">
+        <!-- Results Card -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center">
+              <i class="fas fa-chart-bar text-primary mr-2"></i>
+              <h3 class="text-lg font-semibold text-dark">Analiz Sonuçları</h3>
+            </div>
+            <div class="flex space-x-2">
+              <button id="copy" class="text-xs px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition-colors">
+                <i class="fas fa-copy mr-1"></i>Kopyala
+              </button>
+              <button id="export" class="text-xs px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition-colors">
+                <i class="fas fa-download mr-1"></i>İndir
+              </button>
+            </div>
+          </div>
+          
+          <div class="bg-slate-900 rounded-lg p-4 overflow-auto max-h-96">
+            <pre id="output" class="text-sm text-slate-100 font-mono">{
+  "vulnerabilities": [],
+  "summary": {
+    "total_vulnerabilities": 0,
+    "security_score": 100,
+    "risk_level": "Low Risk"
+  },
+  "metadata": {
+    "solidity_version": null,
+    "contract_count": 0,
+    "function_count": 0,
+    "line_count": 0
+  }
+}</pre>
+          </div>
+        </div>
+
+        <!-- Vulnerability Summary Card -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+          <div class="flex items-center mb-4">
+            <i class="fas fa-shield-alt text-primary mr-2"></i>
+            <h3 class="text-lg font-semibold text-dark">Zafiyet Özeti</h3>
+          </div>
+          
+          <div id="badges" class="space-y-3">
+            <div class="text-center text-slate-500 py-8">
+              <i class="fas fa-search text-3xl mb-2"></i>
+              <p>Analiz yapmak için kod girin veya dosya yükleyin</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Security Score Card -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+          <div class="flex items-center mb-4">
+            <i class="fas fa-star text-primary mr-2"></i>
+            <h3 class="text-lg font-semibold text-dark">Güvenlik Skoru</h3>
+          </div>
+          
+          <div class="text-center">
+            <div class="relative inline-flex items-center justify-center w-24 h-24">
+              <svg class="w-24 h-24 transform -rotate-90">
+                <circle cx="48" cy="48" r="40" stroke="currentColor" stroke-width="8" fill="transparent" class="text-slate-200"/>
+                <circle id="scoreCircle" cx="48" cy="48" r="40" stroke="currentColor" stroke-width="8" fill="transparent" class="text-success" stroke-dasharray="251.2" stroke-dashoffset="251.2"/>
+              </svg>
+              <div class="absolute">
+                <span id="scoreText" class="text-2xl font-bold text-dark">100</span>
+                <span class="text-sm text-secondary">/100</span>
+              </div>
+            </div>
+            <p id="scoreLabel" class="text-sm text-success font-medium mt-2">Mükemmel</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-16 text-center text-sm text-slate-500 border-t border-slate-200 pt-8">
+      <p>&copy; 2024 SolidityGuard. Akıllı kontrat güvenliği için geliştirilmiştir.</p>
+      <p class="mt-2">localhost:3000 üzerinde çalışır • <a href="#" class="text-primary hover:underline">Dokümantasyon</a></p>
+    </footer>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loading" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg p-8 text-center">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+      <p class="text-dark font-medium">Analiz yapılıyor...</p>
+    </div>
+  </div>
+
+  <script>
+    // DOM Elements
+    const elFile = document.getElementById('file');
+    const elCode = document.getElementById('code');
+    const elAnalyze = document.getElementById('analyze');
+    const elOutput = document.getElementById('output');
+    const elCopy = document.getElementById('copy');
+    const elSample = document.getElementById('btnSample');
+    const elBadges = document.getElementById('badges');
+    const elClear = document.getElementById('btnClear');
+    const elFormat = document.getElementById('btnFormat');
+    const elExport = document.getElementById('export');
+    const elLoading = document.getElementById('loading');
+    const elCharCount = document.getElementById('charCount');
+    const elScoreCircle = document.getElementById('scoreCircle');
+    const elScoreText = document.getElementById('scoreText');
+    const elScoreLabel = document.getElementById('scoreLabel');
+
+    // Stats elements
+    const elFilesAnalyzed = document.getElementById('filesAnalyzed');
+    const elCriticalVulns = document.getElementById('criticalVulns');
+    const elMediumVulns = document.getElementById('mediumVulns');
+    const elSafeFiles = document.getElementById('safeFiles');
+
+    // Event Listeners
+    elFile.addEventListener('change', handleFileUpload);
+    elSample.addEventListener('click', loadSampleCode);
+    elAnalyze.addEventListener('click', analyzeCode);
+    elCopy.addEventListener('click', copyResults);
+    elClear.addEventListener('click', clearCode);
+    elFormat.addEventListener('click', formatCode);
+    elExport.addEventListener('click', exportResults);
+    elCode.addEventListener('input', updateCharCount);
+
+    // File Upload Handler
+    async function handleFileUpload(e) {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      
+      try {
+        const text = await file.text();
+        elCode.value = text;
+        updateCharCount();
+        updateStats('filesAnalyzed', 1);
+      } catch (error) {
+        showNotification('Dosya okunamadı: ' + error.message, 'error');
+      }
+    }
+
+    // Sample Code Loader
+    function loadSampleCode() {
+      const sample = `// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract VulnerableContract {
+    mapping(address => uint256) public balances;
+    
+    function deposit() external payable {
+        balances[msg.sender] += msg.value;
+    }
+    
+    function withdraw(uint256 amount) external {
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+        
+        // Reentrancy vulnerability
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed");
+        
+        balances[msg.sender] -= amount;
+    }
+    
+    function increment(uint256 x) public pure returns(uint256) {
+        // Integer overflow vulnerability
+        unchecked { 
+            return x + 1; 
+        }
+    }
+    
+    function sendEther(address payable to) external payable {
+        // Low-level call vulnerability
+        to.send(msg.value);
+    }
+}`;
+      elCode.value = sample;
+      updateCharCount();
+    }
+
+    // Code Analysis
+    async function analyzeCode() {
+      const src = elCode.value.trim();
+      if (!src) {
+        showNotification('Lütfen analiz edilecek kodu girin', 'warning');
+        return;
+      }
+
+      showLoading(true);
+      
+      try {
+        const res = await fetch('/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+          body: src,
+        });
+        
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
+        const data = await res.json();
+        displayResults(data);
+        updateSecurityScore(data);
+        updateVulnerabilityStats(data);
+        
+        showNotification('Analiz tamamlandı!', 'success');
+      } catch (error) {
+        elOutput.textContent = 'Analiz hatası: ' + error.message;
+        showNotification('Analiz sırasında hata oluştu', 'error');
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    // Display Results
+    function displayResults(data) {
+      elOutput.textContent = JSON.stringify(data, null, 2);
+      renderVulnerabilityBadges(data);
+      updateMetadataDisplay(data);
+    }
+
+    // Render Vulnerability Badges
+    function renderVulnerabilityBadges(data) {
+      elBadges.innerHTML = '';
+      const items = data?.vulnerabilities || [];
+      
+      if (items.length === 0) {
+        elBadges.innerHTML = `
+          <div class="text-center text-slate-500 py-8">
+            <i class="fas fa-check-circle text-3xl text-success mb-2"></i>
+            <p class="font-medium">Güvenlik açığı bulunamadı!</p>
+            <p class="text-sm">Kodunuz güvenli görünüyor.</p>
+          </div>
+        `;
+        return;
+      }
+
+      items.forEach(v => {
+        const severity = (v.severity || 'Info').toLowerCase();
+        const colors = {
+          high: 'bg-red-100 text-red-800 border-red-200',
+          medium: 'bg-amber-100 text-amber-800 border-amber-200',
+          low: 'bg-blue-100 text-blue-800 border-blue-200'
+        };
+        
+        const badge = document.createElement('div');
+        badge.className = `flex items-center justify-between p-3 rounded-lg border ${colors[severity] || colors.low}`;
+        badge.innerHTML = `
+          <div class="flex items-center">
+            <i class="fas fa-${severity === 'high' ? 'exclamation-triangle' : severity === 'medium' ? 'exclamation-circle' : 'info-circle'} mr-2"></i>
+            <span class="font-medium">${v.name}</span>
+            <span class="ml-2 px-2 py-1 bg-white bg-opacity-50 rounded text-xs">#${v.line_number}</span>
+          </div>
+          <span class="text-xs font-medium uppercase">${severity}</span>
+        `;
+        elBadges.appendChild(badge);
+      });
+    }
+
+    // Update Security Score
+    function updateSecurityScore(data) {
+      // Use the server-calculated score if available
+      const summary = data?.summary;
+      if (summary && summary.security_score !== undefined) {
+        const score = summary.security_score;
+        const circumference = 251.2;
+        const offset = circumference - (score / 100) * circumference;
+        
+        elScoreCircle.style.strokeDashoffset = offset;
+        elScoreText.textContent = score;
+        
+        // Update risk level display
+        const riskLevel = summary.risk_level || 'Unknown';
+        
+        // Skor etiketini ve rengini güncelle
+        if (score >= 90) {
+          elScoreLabel.textContent = riskLevel;
+          elScoreLabel.className = 'text-sm text-success font-medium mt-2';
+          elScoreCircle.className = 'text-success';
+        } else if (score >= 70) {
+          elScoreLabel.textContent = riskLevel;
+          elScoreLabel.className = 'text-sm text-warning font-medium mt-2';
+          elScoreCircle.className = 'text-warning';
+        } else if (score >= 40) {
+          elScoreLabel.textContent = riskLevel;
+          elScoreLabel.className = 'text-sm text-warning font-medium mt-2';
+          elScoreCircle.className = 'text-warning';
+        } else {
+          elScoreLabel.textContent = riskLevel;
+          elScoreLabel.className = 'text-sm text-danger font-medium mt-2';
+          elScoreCircle.className = 'text-danger';
+        }
+        
+        // Skor animasyonu ekle
+        elScoreCircle.style.transition = 'stroke-dashoffset 1s ease-in-out';
+      } else {
+        // Fallback to client-side calculation
+        const items = data?.vulnerabilities || [];
+        let score = 100;
+        
+        items.forEach(v => {
+          const severity = (v.severity || 'Info').toLowerCase();
+          if (severity === 'critical') score -= 30;
+          else if (severity === 'high') score -= 20;
+          else if (severity === 'medium') score -= 10;
+          else if (severity === 'low') score -= 5;
+        });
+        
+        score = Math.max(0, score);
+        const circumference = 251.2;
+        const offset = circumference - (score / 100) * circumference;
+        
+        elScoreCircle.style.strokeDashoffset = offset;
+        elScoreText.textContent = score;
+        
+        // Update label based on calculated score
+        if (score >= 90) {
+          elScoreLabel.textContent = 'Low Risk';
+          elScoreLabel.className = 'text-sm text-success font-medium mt-2';
+          elScoreCircle.className = 'text-success';
+        } else if (score >= 70) {
+          elScoreLabel.textContent = 'Medium Risk';
+          elScoreLabel.className = 'text-sm text-warning font-medium mt-2';
+          elScoreCircle.className = 'text-warning';
+        } else if (score >= 40) {
+          elScoreLabel.textContent = 'High Risk';
+          elScoreLabel.className = 'text-sm text-warning font-medium mt-2';
+          elScoreCircle.className = 'text-warning';
+        } else {
+          elScoreLabel.textContent = 'Critical Risk';
+          elScoreLabel.className = 'text-sm text-danger font-medium mt-2';
+          elScoreCircle.className = 'text-danger';
+        }
+        
+        elScoreCircle.style.transition = 'stroke-dashoffset 1s ease-in-out';
+      }
+    }
+
+    // Update Vulnerability Stats
+    function updateVulnerabilityStats(data) {
+      const items = data?.vulnerabilities || [];
+      let critical = 0, high = 0, medium = 0, low = 0;
+      
+      items.forEach(v => {
+        const severity = (v.severity || 'Info').toLowerCase();
+        if (severity === 'critical') critical++;
+        else if (severity === 'high') high++;
+        else if (severity === 'medium') medium++;
+        else if (severity === 'low') low++;
+      });
+      
+      updateStats('criticalVulns', critical);
+      updateStats('mediumVulns', medium);
+      
+      // Güvenli dosya sayısını güncelle (zafiyet yoksa)
+      if (items.length === 0) {
+        updateStats('safeFiles', 1);
+      }
+    }
+
+    // Update Metadata Display
+    function updateMetadataDisplay(data) {
+      const metadata = data?.metadata || {};
+      const summary = data?.summary || {};
+      
+      // Update stats cards with new data
+      if (metadata.contract_count !== undefined) {
+        elFilesAnalyzed.textContent = metadata.contract_count;
+      }
+      
+      if (summary.total_vulnerabilities !== undefined) {
+        // Update vulnerability counts
+        const critical = summary.critical_count || 0;
+        const high = summary.high_count || 0;
+        const medium = summary.medium_count || 0;
+        const low = summary.low_count || 0;
+        
+        elCriticalVulns.textContent = critical + high; // Critical + High
+        elMediumVulns.textContent = medium + low; // Medium + Low
+      }
+    }
+
+    // Utility Functions
+    function updateCharCount() {
+      const count = elCode.value.length;
+      elCharCount.textContent = count.toLocaleString();
+    }
+
+    function clearCode() {
+      elCode.value = '';
+      updateCharCount();
+      elOutput.textContent = '{\n  "vulnerabilities": []\n}';
+      elBadges.innerHTML = `
+        <div class="text-center text-slate-500 py-8">
+          <i class="fas fa-search text-3xl mb-2"></i>
+          <p>Analiz yapmak için kod girin veya dosya yükleyin</p>
+        </div>
+      `;
+      resetSecurityScore();
+      
+      // İstatistikleri de sıfırla
+      elCriticalVulns.textContent = '0';
+      elMediumVulns.textContent = '0';
+      elSafeFiles.textContent = '0';
+    }
+
+    function formatCode() {
+      // Basic Solidity formatting
+      let code = elCode.value;
+      code = code.replace(/^\s+/gm, ''); // Remove leading spaces
+      code = code.replace(/\n{3,}/g, '\n\n'); // Remove multiple empty lines
+      elCode.value = code;
+      updateCharCount();
+    }
+
+    function copyResults() {
+      navigator.clipboard.writeText(elOutput.textContent);
+      showNotification('Sonuçlar kopyalandı!', 'success');
+    }
+
+    function exportResults() {
+      const data = elOutput.textContent;
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'security-analysis.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      showNotification('Sonuçlar indirildi!', 'success');
+    }
+
+    function resetSecurityScore() {
+      elScoreCircle.style.strokeDashoffset = 0;
+      elScoreText.textContent = '100';
+      elScoreLabel.textContent = 'Mükemmel';
+      elScoreLabel.className = 'text-sm text-success font-medium mt-2';
+      elScoreCircle.className = 'text-success';
+    }
+
+    function showLoading(show) {
+      elLoading.classList.toggle('hidden', !show);
+    }
+
+    function updateStats(elementId, value) {
+      const element = document.getElementById(elementId);
+      if (element) {
+        const current = parseInt(element.textContent) || 0;
+        element.textContent = current + value;
+      }
+    }
+
+    function showNotification(message, type = 'info') {
+      // Simple notification - you can enhance this with a proper toast library
+      const colors = {
+        success: 'bg-success text-white',
+        error: 'bg-danger text-white',
+        warning: 'bg-warning text-white',
+        info: 'bg-primary text-white'
+      };
+      
+      const notification = document.createElement('div');
+      notification.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${colors[type]}`;
+      notification.textContent = message;
+      
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.remove();
+      }, 3000);
+    }
+
+    // Initialize
+    updateCharCount();
+  </script>
+</body>
+</html>
